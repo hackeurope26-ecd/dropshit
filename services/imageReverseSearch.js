@@ -1,4 +1,7 @@
-const SERP_API_KEY = "8f8979006c2d7210bf8e0ebd6093543cbe2b90a9d5bc207375e5a23c288603a5";
+import { loadEnv } from '../util/loadEnv.js';
+
+const env = loadEnv();
+const SERP_API_KEY = env.SERP_API_KEY;
 
 export async function searchImageWithSerpApi(imageUrl) {
   if (!imageUrl) {
