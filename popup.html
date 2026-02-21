@@ -1,12 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>dropshit</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dropshit</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="dropshit-popup">
+  <div class="popup">
+
+    <!-- ─── Header ────────────────────────────────────────────────────────── -->
+    <header class="header">
+      <span class="wordmark">Dropshit</span>
+      <span class="demo-pill hidden" id="demoPill">Demo</span>
+    </header>
+
+    <!-- ─── State Container ───────────────────────────────────────────────── -->
+    <main class="popup-body">
+
+      <!-- STATE: Idle -->
+      <div class="state" id="stateIdle">
+        <button class="cta-btn" id="ctaBtn">Check this product</button>
+        <p class="tagline">Find it cheaper. Instantly.</p>
+        <button type="button" class="demo-link" id="demoLink">View demo</button>
+      </div>
+
+      <!-- STATE: Loading -->
+      <div class="state" id="stateLoading">
+        <div class="steps">
+          <div class="step" id="stepReading">
+            <span class="step-icon"></span>
+            <span class="step-label">Reading page</span>
+          </div>
+          <div class="step" id="stepAnalysing">
+            <span class="step-icon"></span>
+            <span class="step-label">Analysing product</span>
+          </div>
+          <div class="step" id="stepSearching">
+            <span class="step-icon"></span>
+            <span class="step-label">Searching AliExpress</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATE: Result -->
+      <div class="state" id="stateResult">
+        <!-- Markup hero -->
+        <div class="markup-hero" id="markupHero"></div>
+
+        <div class="divider"></div>
+
+        <!-- Price comparison -->
+        <div class="price-row">
+          <div class="price-col">
+            <span class="price-label">You're paying</span>
+            <span class="price-amount" id="originalPrice"></span>
+            <span class="price-site" id="originalSite"></span>
+          </div>
+          <div class="price-col price-col--right">
+            <span class="price-label">Found for</span>
+            <span class="price-amount price-amount--green" id="matchPrice"></span>
+            <a class="price-site price-link" id="matchLink" href="#" target="_blank">AliExpress ↗</a>
+          </div>
+        </div>
+
+        <!-- Product image -->
+        <img class="product-image" id="matchImage" src="" alt="AliExpress product">
+
+        <!-- Confidence badge -->
+        <div class="confidence-badge" id="confidenceBadge"></div>
+
+        <div class="divider"></div>
+
+        <!-- Claude summary -->
+        <p class="claude-summary" id="claudeSummary"></p>
+
+        <!-- Key features -->
+        <div class="features-row" id="featuresRow"></div>
+
+        <div class="divider"></div>
+
+        <!-- Savings row -->
+        <div class="savings-row">
+          <span class="savings-label">Saved so far</span>
+          <span class="savings-value" id="totalSaved"></span>
+        </div>
+      </div>
+
+      <!-- STATE: Error -->
+      <div class="state" id="stateError">
+        <p class="error-msg" id="errorMessage">Couldn't read this page.</p>
+        <span class="error-retry" id="retryBtn">Try again →</span>
+      </div>
+
+    </main>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

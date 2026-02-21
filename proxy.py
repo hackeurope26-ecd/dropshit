@@ -13,6 +13,25 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Headers'] = '*'
     return response
 
+BRAVE_SEARCH_URL = 'https://api.search.brave.com/res/v1/web/search'
+
+@app.route('/search', methods=['GET', 'OPTIONS'])
+def search():
+    if request.method == 'OPTIONS':
+        return '', 200
+
+    response = requests.get(
+        BRAVE_SEARCH_URL,
+        headers={
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip',
+            'X-Subscription-Token': os.getenv('BRAVE_SEARCH_KEY'),
+        },
+        params=request.args # type: ignore
+    )
+
+    return jsonify(response.json())
+
 @app.route('/chat', methods=['POST', 'OPTIONS'])
 def chat():
     if request.method == 'OPTIONS':
