@@ -28,3 +28,19 @@ export async function searchImageWithSerpApi(imageUrl) {
     throw error;
   }
 }
+
+
+// ===== TEMP TEST RUNNER =====
+if (typeof process !== "undefined" && process.argv[1].includes(".js")) {
+  const testImageUrl = "https://i.etsystatic.com/57608453/r/il/79271a/7062104331/il_1588xN.7062104331_1jbv.jpg";
+
+  (async () => {
+    try {
+      console.log("Running test...\n");
+      await searchImageWithSerpApi(testImageUrl);
+      console.log("\nDone.");
+    } catch (err) {
+      console.error("\nTest failed:", err);
+    }
+  })();
+}
