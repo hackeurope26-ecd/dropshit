@@ -120,6 +120,21 @@ body.dropshit-popup {
   text-align: center;
 }
 
+.demo-link {
+  margin-top: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.demo-link:hover {
+  color: #aaa;
+}
+
 /* ─── State: Loading ─────────────────────────────────────────────────────────── */
 
 #stateLoading {

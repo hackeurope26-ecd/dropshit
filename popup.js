@@ -205,9 +205,13 @@ ctaBtn.addEventListener('click', () => {
 // Retry link → reset to idle
 retryBtn.addEventListener('click', showIdle);
 
+// Demo link → run fake sequence (no API), only when user clicks
+const demoLink = document.getElementById('demoLink');
+if (demoLink) demoLink.addEventListener('click', _runDemoSequence);
+
 // ─── Demo Sequence ────────────────────────────────────────────────────────────
 // Cycles through all three loading steps at 600 ms each, then renders
-// fake data so judges can see the full result UI without any API calls.
+// fake data. Only runs when user clicks "View demo" (no auto-run).
 
 const fakeData = {
   originalImage:   'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
@@ -225,7 +229,7 @@ const fakeData = {
 
 /**
  * Runs the demo loading animation then renders fakeData.
- * Called automatically 2 s after popup load.
+ * Call this only when user explicitly asks for the demo (e.g. "View demo" link).
  */
 function _runDemoSequence() {
   showLoading('reading');
@@ -236,11 +240,8 @@ function _runDemoSequence() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-// Show idle immediately on open
+// Show idle immediately on open; no auto-demo — user must click CTA or "View demo"
 showIdle();
-
-// Auto-demo after 2 s so the UI is visible without any user interaction
-setTimeout(_runDemoSequence, 2000);
 
 // Restore persisted totalSaved (will be used when renderResult is called for real)
 _storageGet('totalSaved', (result) => {
