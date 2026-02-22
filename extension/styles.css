@@ -348,6 +348,11 @@ body.dropshit-popup {
   margin-bottom: 4px;
 }
 
+.markup-hero--green {
+  color: var(--accent-green);
+  background: var(--accent-green-soft);
+}
+
 /* Divider */
 .divider {
   height: 1px;
