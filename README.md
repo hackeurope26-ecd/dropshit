@@ -22,3 +22,7 @@ python backend/proxy.py
 ```
 
 To start the extension, navigate to `chrome://extensions/` in Chrome. Then, toggle 'developer mode', select 'load unpacked', and load `dropshit/extension`.
+
+## Data Flow Diagram
+
+![](./system-diagram.png)
