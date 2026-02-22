@@ -111,9 +111,13 @@ function renderResult(data, isDemo = false) {
   // Demo pill visibility
   demoPill.classList.toggle('hidden', !isDemo);
 
-  // Markup hero — toLocaleString gives "1,854" formatting
-  document.getElementById('markupHero').textContent =
-    `${data.markupPercent.toLocaleString()}% markup`;
+  // Markup hero — green + "better" for negative markup, red + "markup" otherwise
+  const markupHero = document.getElementById('markupHero');
+  const isNegativeMarkup = data.markupPercent < 0;
+  markupHero.textContent = isNegativeMarkup
+    ? `${Math.abs(data.markupPercent).toLocaleString()}% better`
+    : `${data.markupPercent.toLocaleString()}% markup`;
+  markupHero.classList.toggle('markup-hero--green', isNegativeMarkup);
 
   // Prices and site names
   document.getElementById('originalPrice').textContent = data.originalPrice;

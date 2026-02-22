@@ -84,7 +84,7 @@ chrome.runtime.onConnect.addListener((port) => {
             let aiAnalysis = null;
             if (product.main_image) {
                 console.log('Running reverse image search on:', product.main_image);
-                aiAnalysis = await analyzeImages(product.main_image, tab.url);
+                aiAnalysis = await analyzeImages(product.main_image, tab.url, dropshipResult.webSearchResults);
                 console.log('AI Analysis complete:', aiAnalysis);
             } else {
                 throw new Error("Could not detect a main product image to analyze.");
