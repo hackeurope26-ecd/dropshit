@@ -5,6 +5,8 @@ import { synthesiseVerdict } from "./services/synthesiseVerdict.js";
 
 const MATCH_THRESHOLD = 0.90; // minimum visual_match_score to show a result
 
+const MATCH_THRESHOLD = 0.90; // minimum visual_match_score to show a result
+
 async function extractProductData(tabId) {
     const [{ result: pageData }] = await chrome.scripting.executeScript({
         target: { tabId },
@@ -108,8 +110,23 @@ chrome.runtime.onConnect.addListener((port) => {
             // Step 4: Map synthesis result to the UI
             const originalPrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
             const currency = product.currency || '€';
+            
+            // Pick the best AI candidate (highest visual_match_score)
+            const topAiCandidate = (aiAnalysis?.candidates || [])
+                .slice()
+                .sort((a, b) => (b.visual_match_score || 0) - (a.visual_match_score || 0))[0];
 
-            const matchPriceVal = parseFloat(String(synthesis.best_source_price || '0').replace(/[^0-9.]/g, '')) || 0;
+            if (!topAiCandidate || topAiCandidate.visual_match_score < MATCH_THRESHOLD) {
+                const score = topAiCandidate ? Math.round(topAiCandidate.visual_match_score * 100) : 0;
+                const reason = topAiCandidate?.reasoning || 'No close match found.';
+                throw new Error(`No confident match found (${score}% similarity). ${reason}`);
+            }
+
+            const topIndex = topAiCandidate.index ?? 0;
+            const matchDetails = aiAnalysis?.candidateDetails?.[topIndex]?.metadata || {};
+
+            // Calculate Markup
+            const matchPriceVal = parseFloat(String(matchDetails.detectedPrice || '0').replace(/[^0-9.]/g, '')) || 0;
             const markupPercent = (originalPrice && matchPriceVal)
                 ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100)
                 : 0;
@@ -120,11 +137,11 @@ chrome.runtime.onConnect.addListener((port) => {
                     originalImage:   product.main_image || '',
                     originalPrice:   `${currency}${originalPrice.toFixed(2)}`,
                     originalSite:    new URL(tab.url).hostname.replace('www.', ''),
-                    matchImage:      synthesis.matchImageUrl || '',
-                    matchPrice:      synthesis.best_source_price || 'Unknown',
-                    matchUrl:        synthesis.best_source_url || '#',
-                    matchSite:       synthesis.best_source_domain || 'source',
-                    matchConfidence: synthesis.confidence,
+                    matchImage:      matchDetails.imageUrl || '',
+                    matchPrice:      matchDetails.detectedPrice || 'Unknown',
+                    matchUrl:        matchDetails.pageUrl || '#',
+                    matchSite:       matchDetails.domain || 'source',
+                    matchConfidence: topAiCandidate.visual_match_score,
                     markupPercent:   markupPercent,
                     claudeSummary:   synthesis.evidence?.join(' • ') || aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
                     keyFeatures:     product.tags || [],
