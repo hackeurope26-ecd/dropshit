@@ -33,7 +33,7 @@ def search():
             "Accept-Encoding": "gzip",
             "X-Subscription-Token": os.getenv("BRAVE_SEARCH_KEY"),
         },
-        params=request.args, # type: ignore
+        params=request.args,  # type: ignore
     )
     return jsonify(response.json())
 
@@ -46,7 +46,7 @@ def chat():
         "https://hackeurope.crusoecloud.com/v1/chat/completions",
         headers={
             "Content-Type": "application/json",
-            "Authorization": f'Bearer {os.getenv("CRUSOE_KEY")}',
+            "Authorization": f"Bearer {os.getenv('CRUSOE_KEY')}",
         },
         json=request.get_json(),
     )
@@ -97,4 +97,3 @@ def db_record():
 if __name__ == "__main__":
     print("Proxy running on http://localhost:3000")
     app.run(port=3000, debug=True)
-

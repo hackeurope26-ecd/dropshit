@@ -48,13 +48,20 @@ async function selectBestCandidate(usableMatches) {
   return Math.max(0, Math.min(result.best_index ?? 0, usableMatches.length - 1));
 }
 
-export async function analyzeImages(originalImageUrl, pageUrl) {
+export async function analyzeImages(originalImageUrl, pageUrl, webSearchResults = []) {
   if (!originalImageUrl) throw new Error("originalImageUrl is required");
 
   // 1. Reverse image search via proxy
   const reverseData = await searchImageWithSerpApi(originalImageUrl);
-  const usableMatches = (reverseData?.visual_matches || [])
+  const lensMatches = (reverseData?.visual_matches || [])
     .filter(m => m.image && m.link && !isSameListing(m.link, pageUrl));
+
+  const braveMatches = webSearchResults
+    .filter(r => r.thumbnail?.src && r.url && !isSameListing(r.url, pageUrl))
+    .map(r => ({ image: r.thumbnail.src, link: r.url, title: r.title, source: 'brave_search' }));
+
+  const usableMatches = [...lensMatches, ...braveMatches];
+  console.log(`[analyzeImages] ${lensMatches.length} lens + ${braveMatches.length} brave candidates`);
 
   if (!usableMatches.length) {
     return {
