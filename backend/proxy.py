@@ -3,6 +3,7 @@ from flasgger import Swagger
 from dotenv import load_dotenv
 import requests
 import os
+from db import record_detection, lookup_product
 
 load_dotenv()
 
@@ -69,6 +70,28 @@ def lens():
         },
     )
     return jsonify(response.json())
+
+
+@app.route("/db/lookup", methods=["POST", "OPTIONS"])
+def db_lookup():
+    if request.method == "OPTIONS":
+        return "", 200
+    body = request.get_json()
+    result = lookup_product(
+        title=body.get("product_name") or "",
+        tags=body.get("tags") or [],
+        image_url=body.get("image_url") or "",
+    )
+    return jsonify(result or {})
+
+
+@app.route("/db/record", methods=["POST", "OPTIONS"])
+def db_record():
+    if request.method == "OPTIONS":
+        return "", 200
+    data = request.get_json()
+    result = record_detection(data)
+    return jsonify(result)
 
 
 if __name__ == "__main__":
