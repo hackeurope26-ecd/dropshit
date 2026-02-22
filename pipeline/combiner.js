@@ -1,15 +1,19 @@
 // combiner.js
 import { braveSearch } from '../services/braveSearch.js';
+import { generateSearchQueries } from '../services/generateSearchQueries.js';
 import { SYSTEM_PROMPT, DROPSHIP_PROMPT } from './prompts.js';
 
 export async function detectDropshipping(extractedProduct, onProgress) {
     const signals = computeSignals(extractedProduct);
 
-    // Give Qwen "internet access" via Brave Search: run web search and inject results into the prompt
+    // Give Qwen "internet access" via Brave Search: use an LLM reasoning loop to generate
+    // targeted search queries from the product title/description, then run them in parallel.
     let webSearchResults = [];
     try {
-        const query = [extractedProduct.title, 'AliExpress', 'price'].filter(Boolean).join(' ');
-        webSearchResults = await braveSearch(query, { count: 8 });
+        const queries = await generateSearchQueries(extractedProduct.title, extractedProduct.description);
+        console.log('[combiner] generated search queries:', queries);
+        const resultSets = await Promise.all(queries.map(q => braveSearch(q, { count: 4 })));
+        webSearchResults = resultSets.flat();
     } catch (e) {
         console.warn('Brave Search unavailable, Qwen will answer without live web data:', e.message);
     }
@@ -41,6 +45,7 @@ export async function detectDropshipping(extractedProduct, onProgress) {
     return {
         product: extractedProduct,
         signals,
+        webSearchResults,
         dropship_analysis: {
             ...llmAnalysis,
             confidence: computeConfidence(signals, llmAnalysis)

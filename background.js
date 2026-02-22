@@ -1,6 +1,7 @@
 import { analyzeImages } from "./services/analyzeImages.js";
 import { EXTRACTOR_SYSTEM_PROMPT, EXTRACTOR_PROMPT } from "./pipeline/prompts.js";
 import { detectDropshipping } from "./pipeline/combiner.js";
+import { synthesiseVerdict } from "./services/synthesiseVerdict.js";
 
 const MATCH_THRESHOLD = 0.90; // minimum visual_match_score to show a result
 
@@ -77,7 +78,7 @@ chrome.runtime.onConnect.addListener((port) => {
             const product = await extractProductData(tab.id);
             port.postMessage({ step: 'analysing' });
 
-            await detectDropshipping(product, (step) => port.postMessage({ step }));
+            const dropshipResult = await detectDropshipping(product, (step) => port.postMessage({ step }));
 
             // Step 2: Run Reverse Image Pipeline if we found an image
             let aiAnalysis = null;
@@ -89,7 +90,22 @@ chrome.runtime.onConnect.addListener((port) => {
                 throw new Error("Could not detect a main product image to analyze.");
             }
 
-            // Step 3: Map AI results to the UI
+            // Step 3: Synthesise image analysis + web search + text signals into a unified verdict
+            port.postMessage({ step: 'synthesising' });
+            const synthesis = await synthesiseVerdict({
+                product,
+                aiAnalysis,
+                webSearchResults: dropshipResult.webSearchResults,
+                dropshipAnalysis: dropshipResult.dropship_analysis,
+            });
+            console.log('Synthesis verdict:', synthesis);
+
+            if (synthesis.confidence < MATCH_THRESHOLD) {
+                const reason = synthesis.evidence?.[0] || 'No confident match found.';
+                throw new Error(`No confident match found (${Math.round(synthesis.confidence * 100)}% confidence). ${reason}`);
+            }
+
+            // Step 4: Map synthesis result to the UI
             const originalPrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
             const currency = product.currency || '€';
             
@@ -125,7 +141,7 @@ chrome.runtime.onConnect.addListener((port) => {
                     matchSite:       matchDetails.domain || 'source',
                     matchConfidence: topAiCandidate.visual_match_score,
                     markupPercent:   markupPercent,
-                    claudeSummary:   aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
+                    claudeSummary:   synthesis.evidence?.join(' • ') || aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
                     keyFeatures:     product.tags || [],
                     totalSaved:      (originalPrice - matchPriceVal > 0) ? (originalPrice - matchPriceVal).toFixed(2) : 0,
                 }

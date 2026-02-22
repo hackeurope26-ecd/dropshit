@@ -85,6 +85,88 @@ Confidence rules:
 Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.`;
 
 
+export const SYNTHESIS_SYSTEM_PROMPT = `You are a dropshipping detection analyst. You receive three independent sources of evidence and must synthesise them into a single verdict.
+Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.`;
+
+export const SYNTHESIS_PROMPT = ({ product, imageCandidate, candidateMeta, webSearchResults, dropshipAnalysis }) => {
+  const searchBlock = webSearchResults?.length
+    ? webSearchResults.map(r => `- ${r.title || 'No title'}\n  ${r.url || ''}\n  ${(r.description || '').slice(0, 150)}`).join('\n')
+    : 'No results returned.';
+
+  return `Synthesise the following three evidence sources to determine whether the identical wholesale product was found.
+
+## Product Under Analysis
+- Title: ${product.title}
+- Listed price: ${product.price} ${product.currency || ''}
+- Description: ${(product.description || '').slice(0, 300)}
+
+## Evidence 1 — Image Comparison
+- Visual match score: ${imageCandidate.visual_match_score}
+- Identified as duplicate: ${imageCandidate.is_duplicate}
+- Site type of match: ${imageCandidate.site_type}
+- Supplier signal: ${imageCandidate.supplier_signal}
+- Image analysis reasoning: ${imageCandidate.reasoning}
+- Candidate found at: ${candidateMeta.domain} (${candidateMeta.pageUrl})
+- Candidate listed price: ${candidateMeta.detectedPrice || 'unknown'}
+
+## Evidence 2 — Web Search Results (queries generated from product title/description)
+${searchBlock}
+
+## Evidence 3 — Text-based Dropship Signals
+- Likely dropshipped (text analysis): ${dropshipAnalysis.is_dropshipped}
+- Strong indicators: ${(dropshipAnalysis.strong_indicators || []).join(', ') || 'none'}
+- Likely wholesale source: ${dropshipAnalysis.likely_source || 'unknown'}
+- Search terms used: ${dropshipAnalysis.search_terms_used || 'n/a'}
+
+Synthesise ALL evidence and return EXACTLY this JSON:
+{
+  "is_identical_product": true,
+  "verdict": "IDENTICAL | LIKELY_SAME | POSSIBLE_VARIANT | UNRELATED",
+  "confidence": 0.0,
+  "best_source_url": "the most authoritative source URL found across image match and web results",
+  "best_source_price": "price string or null",
+  "best_source_domain": "domain of best source",
+  "evidence": ["key finding 1", "key finding 2", "key finding 3"],
+  "image_evidence": "one sentence describing what the image comparison found",
+  "web_evidence": "one sentence describing what web search results found"
+}`;
+};
+
+export const SEARCH_QUERY_SYSTEM_PROMPT = `You are an expert at identifying the generic, sourceable form of a retail product.
+Your job is to extract 2-3 precise search queries that would find the original wholesale version of a product on platforms like AliExpress, Temu, or Alibaba.
+Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.`;
+
+export const SEARCH_QUERY_INITIAL_PROMPT = (title, description) => `Analyse this product and reason about what search queries would find its original wholesale source.
+
+Product title: ${title}
+Product description: ${description}
+
+Think step by step:
+1. What is the core product type (ignore brand names, marketing words)?
+2. What are its most identifying physical attributes (material, dimensions, mechanism, spec)?
+3. What 2-3 short search phrases would a buyer type into AliExpress to find this exact item?
+
+Respond with JSON:
+{
+  "reasoning": "brief explanation of what you identified",
+  "queries": ["phrase one", "phrase two", "phrase three"],
+  "done": false
+}
+
+Set "done": true only when you are confident the queries are specific and searchable.`;
+
+export const SEARCH_QUERY_REFINE_PROMPT = `Review your queries. Are they specific enough to find the generic wholesale version?
+- Remove any brand names or marketing language
+- Prefer product-type + material/spec over vague descriptors
+- If satisfied, set "done": true. If not, revise and keep "done": false.
+
+Respond with the same JSON shape:
+{
+  "reasoning": "what you changed and why",
+  "queries": ["revised phrase one", "revised phrase two"],
+  "done": true
+}`;
+
 export const EXTRACTOR_PROMPT = (pageData) => `Extract product information from the webpage content below.
 
 Return ONLY this exact JSON structure with no extra fields:
