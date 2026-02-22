@@ -105,6 +105,7 @@ function showLoading(step) {
  * @param {string}   data.claudeSummary    — One-line plain English from Claude
  * @param {string[]} data.keyFeatures      — e.g. ["Generic product", "No brand"]
  * @param {number}   data.totalSaved       — Running euros total, e.g. 340
+ * @param {number}   [data.detectionCount] — Times this product has been flagged across all users
  * @param {boolean}  [isDemo=false]        — If true, shows the "Demo" pill
  */
 function renderResult(data, isDemo = false) {
@@ -135,6 +136,15 @@ function renderResult(data, isDemo = false) {
   const pct = Math.round(data.matchConfidence * 100);
   document.getElementById('confidenceBadge').innerHTML =
     `<span class="confidence-inner">${pct}% match</span>`;
+
+  // Detection count — only show when seen more than once
+  const detectionEl = document.getElementById('detectionCount');
+  if (data.detectionCount > 1) {
+    detectionEl.textContent = `Flagged ${data.detectionCount.toLocaleString()} times`;
+    detectionEl.classList.remove('hidden');
+  } else {
+    detectionEl.classList.add('hidden');
+  }
 
   // Claude one-liner
   document.getElementById('claudeSummary').textContent = data.claudeSummary;

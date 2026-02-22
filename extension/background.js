@@ -129,23 +129,54 @@ chrome.runtime.onConnect.addListener((port) => {
                 ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100)
                 : 0;
 
-            port.postMessage({
-                success: true,
-                data: {
-                    originalImage:   product.main_image || '',
-                    originalPrice:   `${currency}${originalPrice.toFixed(2)}`,
-                    originalSite:    new URL(tab.url).hostname.replace('www.', ''),
-                    matchImage:      matchDetails.imageUrl || '',
-                    matchPrice:      matchDetails.detectedPrice || 'Unknown',
-                    matchUrl:        matchDetails.pageUrl || '#',
-                    matchSite:       matchDetails.domain || 'source',
-                    matchConfidence: topAiCandidate.visual_match_score,
-                    markupPercent:   markupPercent,
-                    claudeSummary:   synthesis.evidence?.join(' • ') || aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
-                    keyFeatures:     product.tags || [],
-                    totalSaved:      (originalPrice - matchPriceVal > 0) ? (originalPrice - matchPriceVal).toFixed(2) : 0,
+            const resultData = {
+                originalImage:   product.main_image || '',
+                originalPrice:   `${currency}${originalPrice.toFixed(2)}`,
+                originalSite:    new URL(tab.url).hostname.replace('www.', ''),
+                matchImage:      matchDetails.imageUrl || '',
+                matchPrice:      matchDetails.detectedPrice || 'Unknown',
+                matchUrl:        matchDetails.pageUrl || '#',
+                matchSite:       matchDetails.domain || 'source',
+                matchConfidence: topAiCandidate.visual_match_score,
+                markupPercent:   markupPercent,
+                claudeSummary:   synthesis.evidence?.join(' • ') || aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
+                keyFeatures:     product.tags || [],
+                totalSaved:      (originalPrice - matchPriceVal > 0) ? (originalPrice - matchPriceVal).toFixed(2) : 0,
+                detectionCount:  1,
+            };
+
+            // Record in vector DB; include detection count in the result
+            try {
+                const dbRes = await fetch('http://localhost:3000/db/record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_name:        product.title || '',
+                        tags:                product.tags || [],
+                        retail_url:          tab.url,
+                        retail_domain:       resultData.originalSite,
+                        retail_price:        originalPrice,
+                        retail_currency:     currency,
+                        retail_image_url:    product.main_image || '',
+                        wholesale_url:       matchDetails.pageUrl || '',
+                        wholesale_domain:    matchDetails.domain || '',
+                        wholesale_price:     matchPriceVal,
+                        wholesale_image_url: matchDetails.imageUrl || '',
+                        markup_pct:          markupPercent,
+                        visual_match_score:  topAiCandidate.visual_match_score,
+                        synthesis_confidence: synthesis.confidence,
+                        evidence:            synthesis.evidence || [],
+                    }),
+                });
+                if (dbRes.ok) {
+                    const dbData = await dbRes.json();
+                    resultData.detectionCount = dbData.detection_count ?? 1;
                 }
-            });
+            } catch (dbErr) {
+                console.warn('[DB] Failed to record detection:', dbErr.message);
+            }
+
+            port.postMessage({ success: true, data: resultData });
         } catch (err) {
             console.error('Extension error:', err);
             port.postMessage({ success: false, error: err.message });
