@@ -1,4 +1,4 @@
-# Dropshit
+<h1><img src="extension/icons/icon128.png" width="70" height="70" style="vertical-align: middle; margin-right: 8px;">      DROPSHIT ✅</h1>
 
 ![Backend Checks](https://github.com/hackeurope26-ecd/dropshit/actions/workflows/ci.yml/badge.svg?job=backend)
 ![Extension Lint](https://github.com/hackeurope26-ecd/dropshit/actions/workflows/ci.yml/badge.svg?job=extension)
@@ -6,6 +6,17 @@
 ![Chrome MV3](https://img.shields.io/badge/chrome-mv3-yellow?logo=googlechrome&logoColor=white)
 ![Flask](https://img.shields.io/badge/flask-3.x-black?logo=flask)
 ![ChromaDB](https://img.shields.io/badge/chromadb-vector--db-orange)
+
+Let's begin by setting scene. It's your partner's birthday next week and you're a CS student, dirt poor ~~and probably homeless too~~. But good news! You want to buy your partner a present off of Amazon, costs a decent sum of money but hey, looks cool in the thumbnail! But then your **worst nightmare** appears...
+
+![dropshipper](.github/assets/brainrot_dropship.jpg)
+
+It's a **DROPSHIPPER**. They lurk behind the thick walls of Shopify and Facebook Marketplace, placing their bait and waiting for you to bite at your lowest. They make a margin of 10x and you get a gift that won't last longer than 2 days. Now, we want to ask you, is that really fair?
+
+## What we solve for you
+We want to eradicate dropshippers. Sure, it's a nice stream of money for them, but as consumers, we want to make sure that when we pay premiums, we get what we pay for. 
+
+Our tool will detect dropshipper listings, match against our database of most commonly dropshipped products, and provide you for an opportunity not to bite their bait and spend your money elsewhere. 
 
 ## API Keys
 Make sure to set values for your dotenv file. Run:
