@@ -1,5 +1,5 @@
 // combiner.js
-async function detectDropshipping(extractedProduct) {
+async function detectDropshipping(extractedProduct, onProgress) {
     const signals = computeSignals(extractedProduct);
 
     // Give Qwen "internet access" via Brave Search: run web search and inject results into the prompt
@@ -11,6 +11,7 @@ async function detectDropshipping(extractedProduct) {
         console.warn('Brave Search unavailable, Qwen will answer without live web data:', e.message);
     }
 
+    onProgress?.('searching');
     console.log(webSearchResults);
 
     const response = await fetch('http://localhost:3000/chat', {

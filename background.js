@@ -52,26 +52,6 @@ async function extractProductData(tabId) {
     return JSON.parse(cleaned);
 }
 
-// // Trigger on icon click
-// chrome.action.onClicked.addListener(async (tab) => {
-//     console.log('clicked');
-
-//     try {
-//         // Step 1: Extract product data
-//         const product = await extractProductData(tab.id);
-//         console.log('Extracted product:', product);
-
-//         // Step 2: Run dropship detection
-//         const combined = await detectDropshipping(product);
-//         console.log('Combined result:', combined);
-
-//         // Step 3: Send to content script to show UI
-//         chrome.tabs.sendMessage(tab.id, { type: 'SHOW_RESULTS', data: combined });
-
-//     } catch (err) {
-//         console.error('Error:', err);
-//     }
-
 // URLs we can't inject into (Chrome internal pages, etc.)
 function isInjectableUrl(url) {
     if (!url) return false;
@@ -79,28 +59,27 @@ function isInjectableUrl(url) {
 }
 
 // Handle messages from the popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action !== 'analyze') return;
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'analyze') return;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
         const tab = tabs[0];
 
         if (!tab || !isInjectableUrl(tab.url)) {
-            sendResponse({ success: false, error: "Can't read this page. Open a product page and try again." });
+            port.postMessage({ success: false, error: "Can't read this page. Open a product page and try again." });
             return;
         }
 
         try {
             const product = await extractProductData(tab.id);
-            console.log('Extracted product:', product);
+            port.postMessage({ step: 'analysing' });
 
-            const combined = await detectDropshipping(product);
-            console.log('Combined result:', combined);
+            await detectDropshipping(product, (step) => port.postMessage({ step }));
 
             const originalPrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
             const currency = product.currency || '€';
 
-            sendResponse({
+            port.postMessage({
                 success: true,
                 data: {
                     originalImage:   product.main_image || '',
@@ -118,9 +97,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
         } catch (err) {
             console.error('Extension error:', err);
-            sendResponse({ success: false, error: err.message });
+            port.postMessage({ success: false, error: err.message });
         }
     });
-
-    return true; // keeps the message channel open for the async response
 });

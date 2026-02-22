@@ -184,22 +184,12 @@ function _storageGet(keys, cb) {
 // CTA button → kick off analysis in the background service worker
 ctaBtn.addEventListener('click', () => {
   showLoading('reading');
-
-  try {
-    chrome.runtime.sendMessage({ action: 'analyze' }, (response) => {
-      if (chrome.runtime.lastError) {
-        showError();
-        return;
-      }
-      if (response?.success) {
-        renderResult(response.data);
-      } else {
-        showError(response?.error);
-      }
-    });
-  } catch (_) {
-    showError('Extension error. Please retry.');
-  }
+  const port = chrome.runtime.connect({ name: 'analyze' });
+  port.onMessage.addListener(({ step, success, data, error }) => {
+    if (step) showLoading(step);
+    else if (success) renderResult(data);
+    else showError(error);
+  });
 });
 
 // Retry link → reset to idle

@@ -65,43 +65,50 @@ Return only this JSON:
 }`;
 };
 
-const EXTRACTOR_SYSTEM_PROMPT = `You are a product data extraction assistant. 
-You must try extremely hard to find values for every field before giving up.
-- For brand: if no explicit brand, infer from the domain name or product title
-- For price: look for any number with a currency symbol anywhere on the page
-- For tags: generate relevant tags from the title and description if none are explicit
-- For identifiers: search the entire page text for any SKU, barcode, GTIN, MPN, or ASIN patterns
-- For description: use the most detailed product description you can find, not marketing copy
-Only use null as an absolute last resort if the information is completely absent.
+const EXTRACTOR_SYSTEM_PROMPT = `You are a product data extraction assistant. Extract only what is explicitly present or directly inferable from the page. Do not fabricate or guess values.
+
+Field rules:
+- title: the full product name as listed on the page
+- description: the most detailed factual product description available; prefer spec sheets or feature lists over marketing copy; if only marketing copy exists, use it but trim superlatives
+- price: the numeric sale/current price only (not RRP/was-price); return as a string with no currency symbol e.g. "19.99"
+- currency: ISO 4217 code inferred from the currency symbol or page locale e.g. "GBP", "USD", "EUR"
+- brand: explicit brand name if present; otherwise infer from the domain name (e.g. "nike.com" → "Nike") or a brand-like token in the product title; null if none of these apply
+- tags: if explicit tags/categories exist on the page, use those; otherwise generate 3–8 short descriptive keywords from the title and description — label these as inferred by returning them normally (the caller knows the source)
+- main_image: the single URL of the primary product photo; prefer the largest image that is not a logo, icon, or banner; use the image candidates list sorted largest-first as a guide
+- identifiers: return as an object; search the full page text for any of the following patterns and include only what you find: { "sku": null, "gtin": null, "mpn": null, "asin": null }
+
+Confidence rules:
+- Use null for any field that is genuinely absent. A plausible-sounding invented value is worse than null.
+- Do not combine multiple prices — if a sale price and RRP are both present, use the sale price.
+- Do not invent identifiers. SKUs and GTINs must be verbatim from the page text.
+
 Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.`;
 
-const EXTRACTOR_PROMPT = (pageData) => `Extract product information from this webpage. Return ONLY this exact JSON structure with no extra fields:
+
+const EXTRACTOR_PROMPT = (pageData) => `Extract product information from the webpage content below.
+
+Return ONLY this exact JSON structure with no extra fields:
 
 {
   "title": "full product name as listed",
-  "description": "detailed product description, not marketing fluff",
+  "description": "detailed product description",
   "price": "19.99",
   "currency": "GBP",
   "brand": "brand or manufacturer name",
   "tags": ["relevant", "product", "tags"],
+  "main_image": "https://example.com/image.jpg",
   "identifiers": {
-    "sku": "stock keeping unit if found",
-    "gtin": "barcode or gtin if found",
-    "mpn": "manufacturer part number if found",
-    "asin": "amazon asin if found"
-  },
-  "main_image": "single URL of the main product image"
+    "sku": null,
+    "gtin": null,
+    "mpn": null,
+    "asin": null
+  }
 }
 
-Rules:
-- price must be a string of just the number e.g. "19.99" not "£19.99"
-- currency must be a 3 letter code e.g. "GBP" "USD" "EUR"
-- tags should be an array of 3-8 short relevant keywords
-- main_image must be a single URL — pick the largest image that is clearly the main product photo, not a logo, banner, or icon
-- only use null if the field is truly absent from the page
-
-Webpage text:
+---
+PAGE TEXT:
 ${pageData.text}
 
-Image candidates (sorted largest first):
+---
+IMAGE CANDIDATES (sorted largest first):
 ${pageData.images.map(img => `${img.src} (${img.width}x${img.height})`).join('\n')}`;
