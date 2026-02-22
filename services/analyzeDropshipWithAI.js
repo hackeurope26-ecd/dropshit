@@ -18,7 +18,7 @@ Return ONLY valid JSON. No explanations, no markdown, no code blocks.`;
   const textPrompt = `The candidate below was selected as the most likely wholesale or supplier source for the original product. Analyze whether the original is being dropshipped at a markup.
 
 For the candidate:
-1. visual_match_score: 0 to 1 (how visually similar to the original - you should be quite strict on matching on the exact product and its patterns.)
+1. visual_match_score: 0 to 1 (how visually similar to the original. The best way to do this is to describe the two images exactly in great detail, and compare texts)
 2. is_duplicate: true if it is the exact same product
 3. site_type: WHOLESALE_SUPPLIER | RETAIL_COMPETITOR | MARKETPLACE | INSPIRATION | NON_COMMERCE
 4. supplier_signal: HIGH | MEDIUM | LOW
