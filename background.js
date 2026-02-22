@@ -1,6 +1,7 @@
 // background.js
-importScripts("./pipeline/combiner.js");
 importScripts('./pipeline/prompts.js');
+importScripts('./services/braveSearch.js');
+importScripts('./pipeline/combiner.js');
 
 async function extractProductData(tabId) {
     // 1. Get page HTML from content script

@@ -2,6 +2,17 @@
 async function detectDropshipping(extractedProduct) {
     const signals = computeSignals(extractedProduct);
 
+    // Give Qwen "internet access" via Brave Search: run web search and inject results into the prompt
+    let webSearchResults = [];
+    try {
+        const query = [extractedProduct.title, 'AliExpress', 'price'].filter(Boolean).join(' ');
+        webSearchResults = await braveSearch(query, { count: 8 });
+    } catch (e) {
+        console.warn('Brave Search unavailable, Qwen will answer without live web data:', e.message);
+    }
+
+    console.log(webSearchResults);
+
     const response = await fetch('http://localhost:3000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -9,7 +20,7 @@ async function detectDropshipping(extractedProduct) {
             model: 'NVFP4/Qwen3-235B-A22B-Instruct-2507-FP4',
             messages: [
                 { role: 'system', content: SYSTEM_PROMPT },
-                { role: 'user', content: DROPSHIP_PROMPT(extractedProduct, signals) }
+                { role: 'user', content: DROPSHIP_PROMPT(extractedProduct, signals, webSearchResults) }
             ],
             temperature: 0.1,
             top_p: 0.95,

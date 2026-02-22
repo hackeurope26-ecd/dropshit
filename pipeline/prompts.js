@@ -4,13 +4,21 @@ const SYSTEM_PROMPT = `You are an expert at identifying dropshipped products bei
 You have deep knowledge of AliExpress, Alibaba, Temu, and other wholesale platforms.
 Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.`;
 
-const DROPSHIP_PROMPT = (extractedProduct, signals) => `Analyse this product and determine if it is likely being dropshipped at a markup.
+const DROPSHIP_PROMPT = (extractedProduct, signals, webSearchResults = null) => {
+  const searchBlock = webSearchResults && webSearchResults.length > 0
+    ? `
+Live web search results (use these to inform your answer — e.g. similar products, prices, sources):
+${webSearchResults.map(r => `- ${r.title || 'No title'}\n  URL: ${r.url || ''}\n  ${(r.description || '').slice(0, 200)}`).join('\n')}
+`
+    : '';
+  return `Analyse this product and determine if it is likely being dropshipped at a markup.
 
 Product details:
 ${JSON.stringify(extractedProduct, null, 2)}
 
 Pre-computed signals:
 ${JSON.stringify(signals, null, 2)}
+${searchBlock}
 
 Your job:
 1. Determine if this is likely a dropshipped product
@@ -55,6 +63,7 @@ Return only this JSON:
   },
   "search_terms_used": "the keywords used to generate the search URLs"
 }`;
+};
 
 const EXTRACTOR_SYSTEM_PROMPT = `You are a product data extraction assistant. 
 You must try extremely hard to find values for every field before giving up.
