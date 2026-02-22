@@ -174,11 +174,11 @@ function showError(message) {
 // extension context (e.g. a plain browser tab during development).
 
 function _storageSet(data) {
-  try { chrome.storage.local.set(data); } catch (_) { /* non-extension context */ }
+  try { chrome.storage.local.set(data); } catch { /* non-extension context */ }
 }
 
 function _storageGet(keys, cb) {
-  try { chrome.storage.local.get(keys, cb); } catch (_) { /* non-extension context */ }
+  try { chrome.storage.local.get(keys, cb); } catch { /* non-extension context */ }
 }
 
 // ─── Event Wiring ─────────────────────────────────────────────────────────────

@@ -7,7 +7,6 @@ on:
 
 jobs:
 
-  # backend
   backend:
     name: Backend Checks
     runs-on: ubuntu-latest
@@ -33,3 +32,25 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+  extension:
+    name: Extension Lint
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
