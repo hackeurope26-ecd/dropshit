@@ -120,8 +120,10 @@ function renderResult(data, isDemo = false) {
   document.getElementById('originalSite').textContent  = data.originalSite;
   document.getElementById('matchPrice').textContent    = data.matchPrice;
 
-  // AliExpress deep link
-  document.getElementById('matchLink').href = data.matchUrl;
+  // Match deep link
+  const matchLink = document.getElementById('matchLink');
+  matchLink.href = data.matchUrl;
+  matchLink.textContent = `${data.matchSite || 'source'} ↗`;
 
   // Product image — hide if load fails (e.g. CORS block)
   const img = document.getElementById('matchImage');

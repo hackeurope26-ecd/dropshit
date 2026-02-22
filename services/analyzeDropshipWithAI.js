@@ -15,14 +15,14 @@ export async function analyzeDropshipWithAI({ original, candidates }) {
   const systemPrompt = `You are an ecommerce product authenticity and dropshipping detection analyst.
 Return ONLY valid JSON. No explanations, no markdown, no code blocks.`;
 
-  const textPrompt = `Analyze whether the source product is likely dropshipped.
+  const textPrompt = `The candidate below was selected as the most likely wholesale or supplier source for the original product. Analyze whether the original is being dropshipped at a markup.
 
-For each candidate:
-1. visual_match_score: 0 to 1
-2. is_duplicate: true if exact same product
+For the candidate:
+1. visual_match_score: 0 to 1 (how visually similar to the original - you should be quite strict on matching on the exact product and its patterns.)
+2. is_duplicate: true if it is the exact same product
 3. site_type: WHOLESALE_SUPPLIER | RETAIL_COMPETITOR | MARKETPLACE | INSPIRATION | NON_COMMERCE
 4. supplier_signal: HIGH | MEDIUM | LOW
-5. reasoning: 1-2 sentences max
+5. reasoning: 1-2 sentences — if the match is weak or not a supplier, explain why
 
 Then provide:
 - overall_verdict: LIKELY_DROPSHIPPED | POSSIBLY_DROPSHIPPED | UNLIKELY_DROPSHIPPED
