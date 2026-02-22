@@ -234,7 +234,7 @@ body.dropshit-popup {
   content: '';
   position: absolute;
   left: 11px;
-  top: 40px;
+  top: 32px;
   height: 24px;
   width: 2px;
   background: var(--border);
