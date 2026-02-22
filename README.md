@@ -8,3 +8,5 @@ cp .env.example .env
 ```
 
 And then fill in the blanks with your keys.
+
+![](./system-diagram.png)
