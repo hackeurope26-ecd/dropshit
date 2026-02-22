@@ -1,6 +1,11 @@
 import { analyzeImages } from "./services/analyzeImages.js";
 self.analyzeImages = analyzeImages;
 
+// background.js
+importScripts('./pipeline/prompts.js');
+importScripts('./services/braveSearch.js');
+importScripts('./pipeline/combiner.js');
+
 async function extractProductData(tabId) {
     const [{ result: pageData }] = await chrome.scripting.executeScript({
         target: { tabId },
@@ -29,32 +34,8 @@ async function extractProductData(tabId) {
         body: JSON.stringify({
             model: 'NVFP4/Qwen3-235B-A22B-Instruct-2507-FP4',
             messages: [
-                {
-                    role: 'system',
-                    content: 'You are a product data extraction assistant. Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.'
-                },
-                {
-                    role: 'user',
-                    content: `Extract product info from this webpage. Return only this JSON:
-{
-  "title": null,
-  "description": null,
-  "price": null,
-  "currency": null,
-  "brand": null,
-  "tags": [],
-  "identifiers": { "sku": null, "gtin": null, "mpn": null, "asin": null },
-  "main_image": null
-}
-
-Use null for any field you cannot find. For main_image pick the single most likely main product image — not a logo or banner.
-
-Webpage text:
-${pageData.text}
-
-Image candidates (sorted largest first):
-${pageData.images.map(img => `${img.src} (${img.width}x${img.height})`).join('\n')}`
-                }
+                { role: 'system', content: EXTRACTOR_SYSTEM_PROMPT },
+                { role: 'user', content: EXTRACTOR_PROMPT(pageData) }
             ],
             temperature: 0.1,
             top_p: 0.95,
@@ -88,14 +69,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const tab = tabs[0];
 
         if (!tab || !isInjectableUrl(tab.url)) {
-            sendResponse({ success: false, error: "Can't read this page. Open a product page and try again." });
+            port.postMessage({ success: false, error: "Can't read this page. Open a product page and try again." });
             return;
         }
 
         try {
             // Step 1: Extract basic product data
             const product = await extractProductData(tab.id);
-            console.log('Extracted product:', product);
+            port.postMessage({ step: 'analysing' });
+
+            await detectDropshipping(product, (step) => port.postMessage({ step }));
 
             // Step 2: Run Reverse Image Pipeline if we found an image
             let aiAnalysis = null;
@@ -121,7 +104,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100) 
                 : 0;
 
-            sendResponse({
+            port.postMessage({
                 success: true,
                 data: {
                     originalImage:   product.main_image || '',
@@ -139,7 +122,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
         } catch (err) {
             console.error('Extension error:', err);
-            sendResponse({ success: false, error: err.message });
+            port.postMessage({ success: false, error: err.message });
         }
     });
 

@@ -1,9 +1,12 @@
 const PROXY_SEARCH_URL = 'http://localhost:3000/search';
 
-export async function search(query, { count = 10 } = {}) {
+/** Call from extension (e.g. combiner) via importScripts — gives Qwen "internet" via Brave Search. */
+async function braveSearch(query, { count = 10 } = {}) {
   const url = new URL(PROXY_SEARCH_URL);
   url.searchParams.set('q', query);
   url.searchParams.set('count', count);
+
+  console.log(url);
 
   const response = await fetch(url);
 
