@@ -1,33 +1,16 @@
-import { loadEnv } from '../util/loadEnv.js';
-
-const env = loadEnv();
-const SERP_API_KEY = env.SERP_API_KEY;
-
+// Routes through the proxy — no CORS issues, no loadEnv in browser
 export async function searchImageWithSerpApi(imageUrl) {
-  if (!imageUrl) {
-    throw new Error("imageUrl is required");
-  }
+  if (!imageUrl) throw new Error("imageUrl is required");
 
-  const endpoint = new URL("https://serpapi.com/search");
+  const response = await fetch("http://localhost:3000/lens", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageUrl })
+  });
 
-  endpoint.searchParams.set("engine", "google_lens");
-  endpoint.searchParams.set("url", imageUrl);
-  endpoint.searchParams.set("api_key", SERP_API_KEY);
+  if (!response.ok) throw new Error(`Lens proxy failed: ${response.status}`);
 
-  try {
-    const response = await fetch(endpoint.toString());
-
-    if (!response.ok) {
-      throw new Error(`SerpAPI request failed:\n${response.status}`);
-    }
-
-    const data = await response.json();
-
-    console.log("SerpAPI result:\n", data);
-
-    return data;
-  } catch (error) {
-    console.error("Error calling SerpAPI:\n", error);
-    throw error;
-  }
+  const data = await response.json();
+  console.log("[imageReverseSearch] result:", data);
+  return data;
 }
