@@ -1,10 +1,10 @@
 // prompts.js
 
-const SYSTEM_PROMPT = `You are an expert at identifying dropshipped products being sold at a markup.
+export const SYSTEM_PROMPT = `You are an expert at identifying dropshipped products being sold at a markup.
 You have deep knowledge of AliExpress, Alibaba, Temu, and other wholesale platforms.
 Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.`;
 
-const DROPSHIP_PROMPT = (extractedProduct, signals, webSearchResults = null) => {
+export const DROPSHIP_PROMPT = (extractedProduct, signals, webSearchResults = null) => {
   const searchBlock = webSearchResults && webSearchResults.length > 0
     ? `
 Live web search results (use these to inform your answer — e.g. similar products, prices, sources):
@@ -65,7 +65,7 @@ Return only this JSON:
 }`;
 };
 
-const EXTRACTOR_SYSTEM_PROMPT = `You are a product data extraction assistant. Extract only what is explicitly present or directly inferable from the page. Do not fabricate or guess values.
+export const EXTRACTOR_SYSTEM_PROMPT = `You are a product data extraction assistant. Extract only what is explicitly present or directly inferable from the page. Do not fabricate or guess values.
 
 Field rules:
 - title: the full product name as listed on the page
@@ -85,24 +85,18 @@ Confidence rules:
 Always respond with valid JSON only. No explanation, no markdown, no code blocks — just raw JSON.`;
 
 
-const EXTRACTOR_PROMPT = (pageData) => `Extract product information from the webpage content below.
+export const EXTRACTOR_PROMPT = (pageData) => `Extract product information from the webpage content below.
 
 Return ONLY this exact JSON structure with no extra fields:
 
 {
-  "title": "full product name as listed",
+  "title": "full product name as listed (usually in a span with id productTitle)",
   "description": "detailed product description",
   "price": "19.99",
   "currency": "GBP",
   "brand": "brand or manufacturer name",
   "tags": ["relevant", "product", "tags"],
   "main_image": "https://example.com/image.jpg",
-  "identifiers": {
-    "sku": null,
-    "gtin": null,
-    "mpn": null,
-    "asin": null
-  }
 }
 
 ---

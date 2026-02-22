@@ -12,8 +12,10 @@ export async function prepareCandidateForAI(resultDict) {
   }
 
   // ✅ btoa() works in service workers, Buffer does not
-  const imageBuffer = await imageResponse.arrayBuffer();
-  const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+  const imageBuffer = new Uint8Array(await imageResponse.arrayBuffer());
+  let imageBinary = '';
+  for (let i = 0; i < imageBuffer.byteLength; i++) imageBinary += String.fromCharCode(imageBuffer[i]);
+  const base64Image = btoa(imageBinary);
 
   let pageTitle = null;
   let detectedPrice = null;

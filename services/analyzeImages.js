@@ -27,8 +27,10 @@ export async function analyzeImages(originalImageUrl) {
   const originalResponse = await fetch(originalImageUrl);
   if (!originalResponse.ok) throw new Error("Failed to download original image");
 
-  const originalBuffer = await originalResponse.arrayBuffer();
-  const originalBase64 = btoa(String.fromCharCode(...new Uint8Array(originalBuffer)));
+  const originalBuffer = new Uint8Array(await originalResponse.arrayBuffer());
+  let originalBinary = '';
+  for (let i = 0; i < originalBuffer.byteLength; i++) originalBinary += String.fromCharCode(originalBuffer[i]);
+  const originalBase64 = btoa(originalBinary);
 
   const original = {
     imageBase64: originalBase64,
