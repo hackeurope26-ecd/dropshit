@@ -44,3 +44,4 @@ To start the extension, navigate to `chrome://extensions/` in Chrome. Then, togg
 ## Data Flow Diagram
 
 ![](.github/assets/system-diagram.png)
+
