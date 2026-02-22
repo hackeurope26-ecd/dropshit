@@ -18,6 +18,8 @@ We want to eradicate dropshippers. Sure, it's a nice stream of money for them, b
 
 Our tool will detect dropshipper listings, match against our database of most commonly dropshipped products, and provide you for an opportunity not to bite their bait and spend your money elsewhere. 
 
+# Developer guide
+
 ## API Keys
 Make sure to set values for your dotenv file. Run:
 
@@ -25,7 +27,7 @@ Make sure to set values for your dotenv file. Run:
 cp .env.example .env
 ```
 
-And then fill in the blanks with your keys.
+And then fill in the blanks with your keys for each.
 
 ## Running the Extension
 
@@ -36,11 +38,15 @@ Install Python and uv. Then,
 ```bash
 uv sync
 . .venv/bin/activate
-python backend/proxy.py
+uv run backend/proxy.py
 ```
 
-To start the extension, navigate to `chrome://extensions/` in Chrome. Then, toggle 'developer mode', select 'load unpacked', and load `dropshit/extension`.
+To start the extension, navigate to `chrome://extensions/` in Chrome. Then, toggle 'developer mode', select 'load unpacked', and drag and drop `dropshit/extension`.
 
 ## Data Flow Diagram
 
-![](.github/assets/system-diagram.png)
+![](.github/assets/final-drawio.png)
+
+## Claude & Docs
+
+We fairly concisely sum up how to navigate the repository in the `CLAUDE.md`. This works well with Claude Code as we have **very** thoroughly tried.
