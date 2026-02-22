@@ -2,6 +2,8 @@ import { analyzeImages } from "./services/analyzeImages.js";
 import { EXTRACTOR_SYSTEM_PROMPT, EXTRACTOR_PROMPT } from "./pipeline/prompts.js";
 import { detectDropshipping } from "./pipeline/combiner.js";
 
+const MATCH_THRESHOLD = 0.90; // minimum visual_match_score to show a result
+
 async function extractProductData(tabId) {
     const [{ result: pageData }] = await chrome.scripting.executeScript({
         target: { tabId },
@@ -81,7 +83,7 @@ chrome.runtime.onConnect.addListener((port) => {
             let aiAnalysis = null;
             if (product.main_image) {
                 console.log('Running reverse image search on:', product.main_image);
-                aiAnalysis = await analyzeImages(product.main_image);
+                aiAnalysis = await analyzeImages(product.main_image, tab.url);
                 console.log('AI Analysis complete:', aiAnalysis);
             } else {
                 throw new Error("Could not detect a main product image to analyze.");
@@ -91,14 +93,24 @@ chrome.runtime.onConnect.addListener((port) => {
             const originalPrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
             const currency = product.currency || '€';
             
-            // Get the best candidate's details (we will update analyzeImages to pass this back)
-            const topCandidateIndex = aiAnalysis?.candidates?.[0]?.index || 0;
-            const matchDetails = aiAnalysis?.candidateDetails?.[topCandidateIndex]?.metadata || {};
-            
+            // Pick the best AI candidate (highest visual_match_score)
+            const topAiCandidate = (aiAnalysis?.candidates || [])
+                .slice()
+                .sort((a, b) => (b.visual_match_score || 0) - (a.visual_match_score || 0))[0];
+
+            if (!topAiCandidate || topAiCandidate.visual_match_score < MATCH_THRESHOLD) {
+                const score = topAiCandidate ? Math.round(topAiCandidate.visual_match_score * 100) : 0;
+                const reason = topAiCandidate?.reasoning || 'No close match found.';
+                throw new Error(`No confident match found (${score}% similarity). ${reason}`);
+            }
+
+            const topIndex = topAiCandidate.index ?? 0;
+            const matchDetails = aiAnalysis?.candidateDetails?.[topIndex]?.metadata || {};
+
             // Calculate Markup
             const matchPriceVal = parseFloat(String(matchDetails.detectedPrice || '0').replace(/[^0-9.]/g, '')) || 0;
-            const markupPercent = (originalPrice && matchPriceVal) 
-                ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100) 
+            const markupPercent = (originalPrice && matchPriceVal)
+                ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100)
                 : 0;
 
             port.postMessage({
@@ -110,7 +122,8 @@ chrome.runtime.onConnect.addListener((port) => {
                     matchImage:      matchDetails.imageUrl || '',
                     matchPrice:      matchDetails.detectedPrice || 'Unknown',
                     matchUrl:        matchDetails.pageUrl || '#',
-                    matchConfidence: aiAnalysis?.confidence || 0,
+                    matchSite:       matchDetails.domain || 'source',
+                    matchConfidence: topAiCandidate.visual_match_score,
                     markupPercent:   markupPercent,
                     claudeSummary:   aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
                     keyFeatures:     product.tags || [],

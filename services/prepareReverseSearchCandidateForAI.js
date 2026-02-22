@@ -40,6 +40,8 @@ export async function prepareCandidateForAI(resultDict) {
       domain: new URL(link).hostname,
       source,
       detectedPrice,
+      imageUrl: image,
+      pageUrl: link,
       imageDimensions: { width: image_width || null, height: image_height || null }
     },
     imageBase64: base64Image,
