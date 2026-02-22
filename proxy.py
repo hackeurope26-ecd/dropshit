@@ -104,16 +104,19 @@ def chat():
     if request.method == 'OPTIONS':
         return '', 200
 
+    body = request.get_json()
     response = requests.post(
         'https://hackeurope.crusoecloud.com/v1/chat/completions',
         headers={
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {os.getenv("CRUSOE_KEY")}'
         },
-        json=request.get_json()
+        json=body
     )
 
-    return jsonify(response.json())
+    data = response.json()
+    print('[chat] response:', data)
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(port=3000)
