@@ -78,6 +78,81 @@ chrome.runtime.onConnect.addListener((port) => {
             const product = await extractProductData(tab.id);
             port.postMessage({ step: 'analysing' });
 
+            const originalPrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
+            const currency = product.currency || '€';
+            const originalSite = new URL(tab.url).hostname.replace('www.', '');
+
+            // Step 1.5: Check vector DB before running expensive inference
+            try {
+                const lookupRes = await fetch('http://localhost:3000/db/lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_name: product.title || '', tags: product.tags || [], image_url: product.main_image || '' }),
+                });
+                if (lookupRes.ok) {
+                    const hit = await lookupRes.json();
+                    if (hit?.cluster_id) {
+                        console.log(`[DB] Cache hit (${Math.round(hit.similarity * 100)}%) — skipping inference`);
+                        const matchPriceVal = hit.wholesale_price_min || 0;
+                        const markupPercent = (originalPrice && matchPriceVal)
+                            ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100)
+                            : Math.round(hit.avg_markup_pct || 0);
+
+                        const resultData = {
+                            originalImage:   product.main_image || '',
+                            originalPrice:   `${currency}${originalPrice.toFixed(2)}`,
+                            originalSite,
+                            matchImage:      hit.wholesale_image_url || '',
+                            matchPrice:      matchPriceVal ? `${currency}${matchPriceVal.toFixed(2)}` : 'Unknown',
+                            matchUrl:        hit.wholesale_url || '#',
+                            matchSite:       hit.wholesale_domain || 'source',
+                            matchConfidence: hit.similarity,
+                            markupPercent,
+                            claudeSummary:   `Previously identified wholesale source — seen ${hit.detection_count} time${hit.detection_count === 1 ? '' : 's'} before.`,
+                            keyFeatures:     product.tags || [],
+                            totalSaved:      (originalPrice - matchPriceVal > 0) ? (originalPrice - matchPriceVal).toFixed(2) : 0,
+                            detectionCount:  hit.detection_count + 1,
+                        };
+
+                        // Increment detection count in DB
+                        try {
+                            const dbRes = await fetch('http://localhost:3000/db/record', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    product_name:         product.title || '',
+                                    tags:                 product.tags || [],
+                                    retail_url:           tab.url,
+                                    retail_domain:        originalSite,
+                                    retail_price:         originalPrice,
+                                    retail_currency:      currency,
+                                    retail_image_url:     product.main_image || '',
+                                    wholesale_url:        hit.wholesale_url || '',
+                                    wholesale_domain:     hit.wholesale_domain || '',
+                                    wholesale_price:      matchPriceVal,
+                                    wholesale_image_url:  hit.wholesale_image_url || '',
+                                    markup_pct:           markupPercent,
+                                    visual_match_score:   hit.similarity,
+                                    synthesis_confidence: hit.avg_confidence || 0,
+                                    evidence:             [`Cache hit from existing cluster (${Math.round(hit.similarity * 100)}% similarity)`],
+                                }),
+                            });
+                            if (dbRes.ok) {
+                                const dbData = await dbRes.json();
+                                resultData.detectionCount = dbData.detection_count ?? resultData.detectionCount;
+                            }
+                        } catch (dbErr) {
+                            console.warn('[DB] Failed to record cache hit:', dbErr.message);
+                        }
+
+                        port.postMessage({ success: true, data: resultData });
+                        return;
+                    }
+                }
+            } catch (lookupErr) {
+                console.warn('[DB] Lookup failed, continuing with full pipeline:', lookupErr.message);
+            }
+
             const dropshipResult = await detectDropshipping(product, (step) => port.postMessage({ step }));
 
             // Step 2: Run Reverse Image Pipeline if we found an image
@@ -106,9 +181,6 @@ chrome.runtime.onConnect.addListener((port) => {
             }
 
             // Step 4: Map synthesis result to the UI
-            const originalPrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
-            const currency = product.currency || '€';
-            
             // Pick the best AI candidate (highest visual_match_score)
             const topAiCandidate = (aiAnalysis?.candidates || [])
                 .slice()
@@ -129,23 +201,54 @@ chrome.runtime.onConnect.addListener((port) => {
                 ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100)
                 : 0;
 
-            port.postMessage({
-                success: true,
-                data: {
-                    originalImage:   product.main_image || '',
-                    originalPrice:   `${currency}${originalPrice.toFixed(2)}`,
-                    originalSite:    new URL(tab.url).hostname.replace('www.', ''),
-                    matchImage:      matchDetails.imageUrl || '',
-                    matchPrice:      matchDetails.detectedPrice || 'Unknown',
-                    matchUrl:        matchDetails.pageUrl || '#',
-                    matchSite:       matchDetails.domain || 'source',
-                    matchConfidence: topAiCandidate.visual_match_score,
-                    markupPercent:   markupPercent,
-                    claudeSummary:   synthesis.evidence?.join(' • ') || aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
-                    keyFeatures:     product.tags || [],
-                    totalSaved:      (originalPrice - matchPriceVal > 0) ? (originalPrice - matchPriceVal).toFixed(2) : 0,
+            const resultData = {
+                originalImage:   product.main_image || '',
+                originalPrice:   `${currency}${originalPrice.toFixed(2)}`,
+                originalSite,
+                matchImage:      matchDetails.imageUrl || '',
+                matchPrice:      matchDetails.detectedPrice || 'Unknown',
+                matchUrl:        matchDetails.pageUrl || '#',
+                matchSite:       matchDetails.domain || 'source',
+                matchConfidence: topAiCandidate.visual_match_score,
+                markupPercent:   markupPercent,
+                claudeSummary:   synthesis.evidence?.join(' • ') || aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
+                keyFeatures:     product.tags || [],
+                totalSaved:      (originalPrice - matchPriceVal > 0) ? (originalPrice - matchPriceVal).toFixed(2) : 0,
+                detectionCount:  1,
+            };
+
+            // Record in vector DB; include detection count in the result
+            try {
+                const dbRes = await fetch('http://localhost:3000/db/record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_name:        product.title || '',
+                        tags:                product.tags || [],
+                        retail_url:          tab.url,
+                        retail_domain:       resultData.originalSite,
+                        retail_price:        originalPrice,
+                        retail_currency:     currency,
+                        retail_image_url:    product.main_image || '',
+                        wholesale_url:       matchDetails.pageUrl || '',
+                        wholesale_domain:    matchDetails.domain || '',
+                        wholesale_price:     matchPriceVal,
+                        wholesale_image_url: matchDetails.imageUrl || '',
+                        markup_pct:          markupPercent,
+                        visual_match_score:  topAiCandidate.visual_match_score,
+                        synthesis_confidence: synthesis.confidence,
+                        evidence:            synthesis.evidence || [],
+                    }),
+                });
+                if (dbRes.ok) {
+                    const dbData = await dbRes.json();
+                    resultData.detectionCount = dbData.detection_count ?? 1;
                 }
-            });
+            } catch (dbErr) {
+                console.warn('[DB] Failed to record detection:', dbErr.message);
+            }
+
+            port.postMessage({ success: true, data: resultData });
         } catch (err) {
             console.error('Extension error:', err);
             port.postMessage({ success: false, error: err.message });
