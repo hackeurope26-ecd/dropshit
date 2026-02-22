@@ -32,7 +32,7 @@ def search():
             "Accept-Encoding": "gzip",
             "X-Subscription-Token": os.getenv("BRAVE_SEARCH_KEY"),
         },
-        params=request.args,
+        params=request.args, # type: ignore
     )
     return jsonify(response.json())
 

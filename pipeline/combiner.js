@@ -1,5 +1,8 @@
 // combiner.js
-async function detectDropshipping(extractedProduct, onProgress) {
+import { braveSearch } from '../services/braveSearch.js';
+import { SYSTEM_PROMPT, DROPSHIP_PROMPT } from './prompts.js';
+
+export async function detectDropshipping(extractedProduct, onProgress) {
     const signals = computeSignals(extractedProduct);
 
     // Give Qwen "internet access" via Brave Search: run web search and inject results into the prompt

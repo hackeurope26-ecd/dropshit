@@ -1,10 +1,6 @@
 import { analyzeImages } from "./services/analyzeImages.js";
-self.analyzeImages = analyzeImages;
-
-// background.js
-importScripts('./pipeline/prompts.js');
-importScripts('./services/braveSearch.js');
-importScripts('./pipeline/combiner.js');
+import { EXTRACTOR_SYSTEM_PROMPT, EXTRACTOR_PROMPT } from "./pipeline/prompts.js";
+import { detectDropshipping } from "./pipeline/combiner.js";
 
 async function extractProductData(tabId) {
     const [{ result: pageData }] = await chrome.scripting.executeScript({
@@ -62,8 +58,8 @@ function isInjectableUrl(url) {
     return url.startsWith('http://') || url.startsWith('https://');
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action !== 'analyze') return;
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'analyze') return;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
         const tab = tabs[0];
@@ -75,6 +71,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         try {
             // Step 1: Extract basic product data
+            port.postMessage({ step: 'reading' });
             const product = await extractProductData(tab.id);
             port.postMessage({ step: 'analysing' });
 
@@ -125,6 +122,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             port.postMessage({ success: false, error: err.message });
         }
     });
-
-    return true;
 });

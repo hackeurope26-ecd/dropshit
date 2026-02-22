@@ -11,6 +11,9 @@ export async function searchImageWithSerpApi(imageUrl) {
   if (!response.ok) throw new Error(`Lens proxy failed: ${response.status}`);
 
   const data = await response.json();
+  if (data.visual_matches) {
+    data.visual_matches = data.visual_matches.slice(0, 10);
+  }
   console.log("[imageReverseSearch] result:", data);
   return data;
 }
