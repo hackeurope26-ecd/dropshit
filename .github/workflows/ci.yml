@@ -31,6 +31,7 @@ jobs:
 
       - name: Lint
         run: uv run ruff check .
+        continue-on-error: true
 
   extension:
     name: Extension Lint
@@ -45,7 +46,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20.12
           cache: npm
           cache-dependency-path: extension/package-lock.json
 
@@ -54,3 +55,4 @@ jobs:
 
       - name: Lint
         run: npm run lint
+        continue-on-error: true

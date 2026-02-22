@@ -195,17 +195,28 @@ function _storageGet(keys, cb) {
   try { chrome.storage.local.get(keys, cb); } catch { /* non-extension context */ }
 }
 
-// ─── Event Wiring ─────────────────────────────────────────────────────────────
+// ─── Port Helper ──────────────────────────────────────────────────────────────
 
-// CTA button → kick off analysis in the background service worker
-ctaBtn.addEventListener('click', () => {
-  showLoading('reading');
+/**
+ * Opens a port to the service worker and wires step/result/error messages to
+ * the appropriate state transitions. Used both on CTA click and when the popup
+ * opens mid-preload.
+ */
+function _connectAnalysisPort() {
   const port = chrome.runtime.connect({ name: 'analyze' });
   port.onMessage.addListener(({ step, success, data, error }) => {
     if (step) showLoading(step);
     else if (success) renderResult(data);
     else showError(error);
   });
+}
+
+// ─── Event Wiring ─────────────────────────────────────────────────────────────
+
+// CTA button → kick off analysis in the background service worker
+ctaBtn.addEventListener('click', () => {
+  showLoading('reading');
+  _connectAnalysisPort();
 });
 
 // Retry link → reset to idle
@@ -246,8 +257,40 @@ function _runDemoSequence() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-// Show idle immediately on open; no auto-demo — user must click CTA or "View demo"
-showIdle();
+/**
+ * On open, check whether the background has already started (or finished)
+ * analysis for this tab. Transition directly to the right state so the user
+ * never has to click "Check this product" on a supported shop URL.
+ *
+ *   done    → renderResult immediately (no port needed)
+ *   loading → showLoading at current step + subscribe via port for the rest
+ *   error   → showError
+ *   (none)  → showIdle — user initiates via CTA as normal
+ */
+async function _init() {
+  try {
+    const tabs = await new Promise(resolve =>
+      chrome.tabs.query({ active: true, currentWindow: true }, resolve)
+    );
+    const tab = tabs?.[0];
+    if (tab) {
+      const stored = await chrome.storage.session.get(`preload_${tab.id}`);
+      const state  = stored[`preload_${tab.id}`] ?? null;
+      if (state?.url === tab.url) {
+        if (state.status === 'done')    { renderResult(state.data);  return; }
+        if (state.status === 'error')   { showError(state.error);    return; }
+        if (state.status === 'loading') {
+          showLoading(state.step);
+          _connectAnalysisPort(); // subscribe for remaining step + final result
+          return;
+        }
+      }
+    }
+  } catch { /* non-extension context or permission denied */ }
+  showIdle();
+}
+
+_init();
 
 // Restore persisted totalSaved (will be used when renderResult is called for real)
 _storageGet('totalSaved', (result) => {

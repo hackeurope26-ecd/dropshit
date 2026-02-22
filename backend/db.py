@@ -9,14 +9,14 @@ import requests
 from chromadb import Collection
 
 CHROMA_PATH = "./backend/data/chroma"
-SIMILARITY_THRESHOLD = 0.85  # cosine similarity for deduplication
-CACHE_THRESHOLD = 0.87       # bar for skipping inference on lookup
+SIMILARITY_THRESHOLD = 0.995  # cosine similarity for deduplication
+CACHE_THRESHOLD = 0.995       # bar for skipping inference on lookup
 
 CRUSOE_URL = "https://hackeurope.crusoecloud.com/v1/chat/completions"
 CRUSOE_MODEL = "NVFP4/Qwen3-235B-A22B-Instruct-2507-FP4"
 EMBED_MODEL = "text-embedding-3-small"
 
-_client: Optional[chromadb.ClientAPI] = None
+_client: Optional[chromadb.ClientAPI] = None # type: ignore
 _clusters: Optional[Collection] = None
 _sightings: Optional[Collection] = None
 
@@ -64,15 +64,26 @@ def _describe_image(image_url: str) -> str:
                     {
                         "type": "text",
                         "text": (
-                            "Describe this product image for similarity search. "
-                            "Include material, colour, shape, style, and key visual features. "
-                            "Be specific and concise — 2 to 3 sentences only."
+                            "You are a product forensics system. Your output will be converted to a vector embedding "
+                            "and used to find visually identical products across different websites. "
+                            "Describe every observable visual detail of this product with maximum specificity. "
+                            "Cover all of the following — omit nothing that is visible:\n"
+                            "- PRODUCT TYPE: exact category and sub-category (e.g. 'stainless steel insulated travel mug with lid', not just 'mug')\n"
+                            "- COLOURS: every colour present, exact shade (e.g. 'matte charcoal grey body, brushed silver lid, black rubber base ring'), finish on each surface\n"
+                            "- SHAPE & GEOMETRY: silhouette, proportions, aspect ratio, curvature, taper, edges (rounded vs sharp), symmetry\n"
+                            "- DIMENSIONS & SCALE: estimated size relative to visible context clues or standard objects\n"
+                            "- MATERIALS & TEXTURE: each surface's material and texture (smooth plastic, ribbed rubber grip, woven fabric, etc.)\n"
+                            "- TEXT & BRANDING: transcribe every word, number, logo, icon, or label visible on the product exactly as written\n"
+                            "- PATTERNS & GRAPHICS: describe any print, embossing, etching, stitching pattern, or decorative element in detail\n"
+                            "- HARDWARE & COMPONENTS: buttons, zips, clasps, hinges, ports, seams, stitching colour, attachment points\n"
+                            "- UNIQUE IDENTIFIERS: any feature that would appear on this exact SKU and not on a generic version of the same product type\n"
+                            "Write in dense, factual prose. No filler words. No opinions. Do not say 'the image shows' — just describe the product directly."
                         ),
                     },
                 ],
             }],
             "temperature": 0.1,
-            "max_tokens": 150,
+            "max_tokens": 600,
         },
         timeout=30,
     )
@@ -149,7 +160,7 @@ def record_detection(data: dict) -> dict:
             include=["distances", "metadatas"],
         )
         if results["ids"][0]:
-            distance = results["distances"][0][0]
+            distance = results["distances"][0][0] # type: ignore
             if distance <= (1 - SIMILARITY_THRESHOLD):
                 cluster_id = results["ids"][0][0]
     else:
@@ -159,7 +170,7 @@ def record_detection(data: dict) -> dict:
     # 3a. Update existing cluster
     if cluster_id:
         existing = clusters.get(ids=[cluster_id])
-        meta = existing["metadatas"][0]
+        meta = existing["metadatas"][0] # type: ignore
         n = int(meta.get("centroid_n", 1))  # type: ignore[arg-type]
         new_n = n + 1
         detection_count = int(meta.get("detection_count", 1)) + 1  # type: ignore[arg-type]
@@ -284,7 +295,7 @@ def lookup_product(title: str, tags: list[str], image_url: str = "") -> dict | N
     if not results["ids"][0]:
         return None
 
-    distance = results["distances"][0][0]
+    distance = results["distances"][0][0] # type: ignore
     similarity = 1 - distance
 
     if similarity < CACHE_THRESHOLD:
@@ -293,5 +304,5 @@ def lookup_product(title: str, tags: list[str], image_url: str = "") -> dict | N
     return {
         "cluster_id": results["ids"][0][0],
         "similarity": round(similarity, 4),
-        **results["metadatas"][0][0],
+        **results["metadatas"][0][0], # type: ignore
     }
