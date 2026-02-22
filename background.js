@@ -1,10 +1,12 @@
+import { analyzeImages } from "./services/analyzeImages.js";
+self.analyzeImages = analyzeImages;
+
 // background.js
 importScripts('./pipeline/prompts.js');
 importScripts('./services/braveSearch.js');
 importScripts('./pipeline/combiner.js');
 
 async function extractProductData(tabId) {
-    // 1. Get page HTML from content script
     const [{ result: pageData }] = await chrome.scripting.executeScript({
         target: { tabId },
         func: () => {
@@ -22,14 +24,10 @@ async function extractProductData(tabId) {
                 .sort((a, b) => (b.width * b.height) - (a.width * a.height))
                 .slice(0, 10);
 
-            return {
-                text: clone.innerText.slice(0, 15000),
-                images
-            };
+            return { text: clone.innerText.slice(0, 15000), images };
         }
     });
 
-    // 2. Call LLM
     const response = await fetch('http://localhost:3000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,20 +45,25 @@ async function extractProductData(tabId) {
     });
 
     const data = await response.json();
+    console.log("LLM raw response:", JSON.stringify(data)); // debug
+    
+    // Safety check: Prevent the undefined '0' crash
+    if (!data.choices || !data.choices[0]) {
+        throw new Error("LLM Error: " + (data.error?.message || JSON.stringify(data)));
+    }
+    
     const raw = data.choices[0].message.content.trim();
     const cleaned = raw.replace(/^```json\n?/, '').replace(/^```\n?/, '').replace(/```$/, '').trim();
     return JSON.parse(cleaned);
 }
 
-// URLs we can't inject into (Chrome internal pages, etc.)
 function isInjectableUrl(url) {
     if (!url) return false;
     return url.startsWith('http://') || url.startsWith('https://');
 }
 
-// Handle messages from the popup
-chrome.runtime.onConnect.addListener((port) => {
-    if (port.name !== 'analyze') return;
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== 'analyze') return;
 
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
         const tab = tabs[0];
@@ -71,13 +74,35 @@ chrome.runtime.onConnect.addListener((port) => {
         }
 
         try {
+            // Step 1: Extract basic product data
             const product = await extractProductData(tab.id);
             port.postMessage({ step: 'analysing' });
 
             await detectDropshipping(product, (step) => port.postMessage({ step }));
 
+            // Step 2: Run Reverse Image Pipeline if we found an image
+            let aiAnalysis = null;
+            if (product.main_image) {
+                console.log('Running reverse image search on:', product.main_image);
+                aiAnalysis = await analyzeImages(product.main_image);
+                console.log('AI Analysis complete:', aiAnalysis);
+            } else {
+                throw new Error("Could not detect a main product image to analyze.");
+            }
+
+            // Step 3: Map AI results to the UI
             const originalPrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
             const currency = product.currency || '€';
+            
+            // Get the best candidate's details (we will update analyzeImages to pass this back)
+            const topCandidateIndex = aiAnalysis?.candidates?.[0]?.index || 0;
+            const matchDetails = aiAnalysis?.candidateDetails?.[topCandidateIndex]?.metadata || {};
+            
+            // Calculate Markup
+            const matchPriceVal = parseFloat(String(matchDetails.detectedPrice || '0').replace(/[^0-9.]/g, '')) || 0;
+            const markupPercent = (originalPrice && matchPriceVal) 
+                ? Math.round(((originalPrice - matchPriceVal) / matchPriceVal) * 100) 
+                : 0;
 
             port.postMessage({
                 success: true,
@@ -85,19 +110,21 @@ chrome.runtime.onConnect.addListener((port) => {
                     originalImage:   product.main_image || '',
                     originalPrice:   `${currency}${originalPrice.toFixed(2)}`,
                     originalSite:    new URL(tab.url).hostname.replace('www.', ''),
-                    matchImage:      product.main_image || '',
-                    matchPrice:      'Searching…',
-                    matchUrl:        '#',
-                    matchConfidence: 0,
-                    markupPercent:   0,
-                    claudeSummary:   product.description || 'Product extracted successfully.',
+                    matchImage:      matchDetails.imageUrl || '',
+                    matchPrice:      matchDetails.detectedPrice || 'Unknown',
+                    matchUrl:        matchDetails.pageUrl || '#',
+                    matchConfidence: aiAnalysis?.confidence || 0,
+                    markupPercent:   markupPercent,
+                    claudeSummary:   aiAnalysis?.summary_bullets?.join(' • ') || 'Product analyzed successfully.',
                     keyFeatures:     product.tags || [],
-                    totalSaved:      0,
-                },
+                    totalSaved:      (originalPrice - matchPriceVal > 0) ? (originalPrice - matchPriceVal).toFixed(2) : 0,
+                }
             });
         } catch (err) {
             console.error('Extension error:', err);
             port.postMessage({ success: false, error: err.message });
         }
     });
+
+    return true;
 });
